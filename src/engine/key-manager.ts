@@ -1,0 +1,287 @@
+import crypto from "node:crypto";
+import fs from "node:fs";
+import path from "node:path";
+import { GoogleGenAI } from "@google/genai";
+import { BASE_DIR, getCurrentGeminiApiKey, OUTPUT_DIR } from "./config";
+import type { KeyStatus } from "./types";
+
+const ENV_PATH = path.join(BASE_DIR, ".env");
+const USAGE_FILE = path.join(OUTPUT_DIR, "key_usage.json");
+
+export function getKeyHash(key: string): string {
+	return crypto
+		.createHash("sha256")
+		.update(key.trim())
+		.digest("hex")
+		.slice(0, 12);
+}
+
+export function maskKey(key: string): string {
+	const k = key.trim();
+	if (k.length <= 12) {
+		return k.length > 6 ? `${k.slice(0, 3)}...${k.slice(-3)}` : "***";
+	}
+	return `${k.slice(0, 8)}...${k.slice(-6)}`;
+}
+
+export function readEnvFile(): Record<string, string> {
+	if (!fs.existsSync(ENV_PATH)) return {};
+	const content = fs.readFileSync(ENV_PATH, "utf-8");
+	const result: Record<string, string> = {};
+	for (const line of content.split("\n")) {
+		const trimmed = line.trim();
+		if (!trimmed || trimmed.startsWith("#")) continue;
+		const idx = trimmed.indexOf("=");
+		if (idx !== -1) {
+			result[trimmed.slice(0, idx).trim()] = trimmed.slice(idx + 1).trim();
+		}
+	}
+	return result;
+}
+
+export function writeEnvFile(envDict: Record<string, string>): void {
+	const lines = Object.entries(envDict).map(([k, v]) => `${k}=${v}`);
+	fs.writeFileSync(ENV_PATH, `${lines.join("\n")}\n`, "utf-8");
+}
+
+export function loadAllKeys(): string[] {
+	const env = readEnvFile();
+	const keys: string[] = [];
+
+	const main = env.GEMINI_API_KEY?.trim();
+	if (main && !keys.includes(main)) keys.push(main);
+
+	const multi = env.GEMINI_API_KEYS;
+	if (multi) {
+		for (const k of multi.split(",")) {
+			const clean = k.trim();
+			if (clean && !keys.includes(clean)) keys.push(clean);
+		}
+	}
+
+	for (const [k, v] of Object.entries(env)) {
+		if (
+			k.startsWith("GEMINI_API_KEY_") &&
+			v?.trim() &&
+			!keys.includes(v.trim())
+		) {
+			keys.push(v.trim());
+		}
+	}
+
+	return keys;
+}
+
+export function setApiKeyActive(key: string): boolean {
+	const clean = key.trim();
+	if (!clean) return false;
+	const env = readEnvFile();
+	const allKeys = loadAllKeys();
+	if (!allKeys.includes(clean)) allKeys.push(clean);
+
+	env.GEMINI_API_KEY = clean;
+	env.GEMINI_API_KEYS = allKeys.join(",");
+	writeEnvFile(env);
+	process.env.GEMINI_API_KEY = clean;
+	return true;
+}
+
+export function addNewApiKey(newKey: string, makeActive = false): boolean {
+	const clean = newKey.trim();
+	if (!clean) return false;
+	const allKeys = loadAllKeys();
+	if (!allKeys.includes(clean)) allKeys.push(clean);
+
+	const env = readEnvFile();
+	if (makeActive || !env.GEMINI_API_KEY) {
+		env.GEMINI_API_KEY = clean;
+		process.env.GEMINI_API_KEY = clean;
+	}
+	env.GEMINI_API_KEYS = allKeys.join(",");
+	writeEnvFile(env);
+	return true;
+}
+
+export interface KeyUsageStore {
+	[hash: string]: {
+		date: string;
+		today_requests: number;
+		today_videos: number;
+		total_tokens_est: number;
+		tier_override?: "pro" | "free" | "payg";
+	};
+}
+
+export function loadUsageStore(): KeyUsageStore {
+	if (!fs.existsSync(USAGE_FILE)) return {};
+	try {
+		return JSON.parse(fs.readFileSync(USAGE_FILE, "utf-8"));
+	} catch {
+		return {};
+	}
+}
+
+export function saveUsageStore(store: KeyUsageStore): void {
+	fs.writeFileSync(USAGE_FILE, JSON.stringify(store, null, 2), "utf-8");
+}
+
+export function setKeyTier(
+	keyHash: string,
+	tier: "pro" | "free" | "payg",
+): boolean {
+	const store = loadUsageStore();
+	const today = new Date().toISOString().slice(0, 10);
+	if (!store[keyHash]) {
+		store[keyHash] = {
+			date: today,
+			today_requests: 0,
+			today_videos: 0,
+			total_tokens_est: 0,
+			tier_override: tier,
+		};
+	} else {
+		store[keyHash].tier_override = tier;
+	}
+	saveUsageStore(store);
+	return true;
+}
+
+export function recordKeyUsage(
+	key: string,
+	action = "api_call",
+	tokensEst = 500,
+): void {
+	const h = getKeyHash(key);
+	const today = new Date().toISOString().slice(0, 10);
+	const store = loadUsageStore();
+
+	if (!store[h] || store[h].date !== today) {
+		const existingTier = store[h]?.tier_override;
+		store[h] = {
+			date: today,
+			today_requests: 0,
+			today_videos: 0,
+			total_tokens_est: 0,
+			tier_override: existingTier,
+		};
+	}
+
+	store[h].today_requests += 1;
+	store[h].total_tokens_est += tokensEst;
+	if (action === "video_generation") {
+		store[h].today_videos += 1;
+	}
+	saveUsageStore(store);
+}
+
+export async function testKeyStatus(
+	key: string,
+	isActive = false,
+): Promise<KeyStatus> {
+	const kHash = getKeyHash(key);
+	const masked = maskKey(key);
+	const tStart = Date.now();
+
+	const store = loadUsageStore();
+	const usage = store[kHash] || { today_requests: 0, today_videos: 0 };
+
+	try {
+		const ai = new GoogleGenAI({ apiKey: key });
+		const modelsResponse = await ai.models.list();
+		let modelCount = 0;
+		for await (const _ of modelsResponse) {
+			modelCount++;
+			if (modelCount > 60) break;
+		}
+		const latency = Date.now() - tStart;
+
+		// Default active/extended access keys to Gemini Pro Plan (Subscription)
+		const effectiveTier: "pro" | "free" | "payg" =
+			store[kHash]?.tier_override || (modelCount > 40 ? "pro" : "free");
+
+		let serviceTier = "Gemini Pro Plan";
+		let tierExplanation =
+			"Gemini Pro Subscription: Priority 10,000 RPD • 1,000 RPM • Flat Subscription (No Pay-As-You-Go Metering)";
+		let dailyLimit = 10000;
+		let rpm = 1000;
+		let tpm = "4,000,000 TPM";
+
+		if (effectiveTier === "free") {
+			serviceTier = "Free Tier (Google AI Studio)";
+			tierExplanation =
+				"Google AI Studio Free Tier: 1,500 Requests/Day • 15 Requests/Min";
+			dailyLimit = 1500;
+			rpm = 15;
+			tpm = "1,000,000 TPM";
+		} else if (effectiveTier === "payg") {
+			serviceTier = "Cloud Pay-As-You-Go";
+			tierExplanation =
+				"Google Cloud Metered Billing: 10,000+ Requests/Day • 1,000 Requests/Min";
+			dailyLimit = 10000;
+			rpm = 1000;
+			tpm = "4,000,000 TPM";
+		}
+
+		const remaining = Math.max(0, dailyLimit - usage.today_requests);
+
+		return {
+			key_hash: kHash,
+			masked_key: masked,
+			is_active: isActive,
+			valid: true,
+			status: "Operational",
+			service_tier: serviceTier,
+			tier_type: effectiveTier,
+			models_count: modelCount,
+			daily_limit_rpd: dailyLimit,
+			remaining_estimated_rpd: remaining,
+			daily_limit_requests: dailyLimit,
+			remaining_daily_requests: remaining,
+			rate_limit_rpm: rpm,
+			token_limit_tpm: tpm,
+			tier_explanation: tierExplanation,
+			today_requests: usage.today_requests,
+			today_videos: usage.today_videos,
+			latency_ms: latency,
+			last_checked: new Date().toLocaleTimeString(),
+		};
+	} catch (err: unknown) {
+		const errMsg = err instanceof Error ? err.message : String(err);
+		const latency = Date.now() - tStart;
+		return {
+			key_hash: kHash,
+			masked_key: masked,
+			is_active: isActive,
+			valid: false,
+			status: errMsg.includes("API_KEY_INVALID")
+				? "Invalid API Key"
+				: "Quota Exhausted",
+			service_tier: "Unknown",
+			models_count: 0,
+			daily_limit_rpd: 1500,
+			remaining_estimated_rpd: 0,
+			daily_limit_requests: 1500,
+			remaining_daily_requests: 0,
+			rate_limit_rpm: 15,
+			token_limit_tpm: "1,000,000 TPM",
+			tier_explanation: "Inactive or Exhausted Key",
+			today_requests: usage.today_requests,
+			today_videos: usage.today_videos,
+			latency_ms: latency,
+			last_checked: new Date().toLocaleTimeString(),
+		};
+	}
+}
+
+export async function getAllKeysStatus(): Promise<KeyStatus[]> {
+	const keys = loadAllKeys();
+	const activeKey = getCurrentGeminiApiKey();
+	const results: KeyStatus[] = [];
+
+	for (const k of keys) {
+		const status = await testKeyStatus(k, k === activeKey);
+		results.push(status);
+	}
+
+	return results;
+}

@@ -1,0 +1,28 @@
+@import "tailwindcss";
+
+@layer base {
+	body {
+		background-color: #090c13;
+		color: #f1f5f9;
+		font-family:
+			system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+			"Helvetica Neue", Arial, sans-serif;
+	}
+}
+
+.glass-panel {
+	background: rgba(17, 24, 39, 0.75);
+	backdrop-filter: blur(12px);
+	border: 1px solid rgba(56, 189, 248, 0.15);
+}
+
+.glass-card {
+	background: rgba(22, 29, 45, 0.85);
+	border: 1px solid rgba(255, 255, 255, 0.08);
+	transition: all 0.2s ease-in-out;
+}
+
+.glass-card:hover {
+	border-color: rgba(56, 189, 248, 0.4);
+	transform: translateY(-2px);
+}
