@@ -26,6 +26,15 @@ interface GeneratorFormProps {
 	onVideoCreated: (video: VideoMetadata) => void;
 }
 
+function formatRemainingTime(sec?: number): string {
+	if (sec === undefined || sec === null) return "";
+	if (sec <= 0) return "finishing up";
+	if (sec < 60) return `~${sec}s left`;
+	const mins = Math.floor(sec / 60);
+	const rem = sec % 60;
+	return `~${mins}m ${rem}s left`;
+}
+
 const MODEL_OPTIONS: SelectOption[] = [
 	{
 		value: "gemini-3.8-flash",
@@ -778,7 +787,7 @@ export function GeneratorForm({
 						<Wand2 className="w-4 h-4" />
 						<span>
 							{isCurrentJobActive
-								? `Generating... ${currentJob?.progress || 10}% ${currentJob?.estimatedRemainingSec ? `(~${currentJob.estimatedRemainingSec}s left)` : ""}`
+								? `Generating... ${currentJob?.progress || 10}% ${currentJob?.estimatedRemainingSec ? `(${formatRemainingTime(currentJob.estimatedRemainingSec)})` : ""}`
 								: "Generate Study Video"}
 						</span>
 					</button>
@@ -819,7 +828,7 @@ export function GeneratorForm({
 						<div className="flex items-center gap-2 font-mono">
 							{currentJob.estimatedRemainingSec !== undefined && (
 								<span className="text-sky-300 text-[11px] bg-sky-950/80 px-2 py-0.5 rounded border border-sky-800/40">
-									~{currentJob.estimatedRemainingSec}s left
+									{formatRemainingTime(currentJob.estimatedRemainingSec)}
 								</span>
 							)}
 							<span className="text-slate-300 font-semibold">

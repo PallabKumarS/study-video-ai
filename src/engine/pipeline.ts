@@ -137,17 +137,20 @@ export async function generateStudyVideo(params: {
 	);
 
 	const numSegments = segments.length;
-	let perSegSec = 4;
-	if (model.includes("pro")) perSegSec = 8;
-	else if (model.includes("lite")) perSegSec = 3;
-	else if (model.includes("veo")) perSegSec = 25;
+	// Real-world segment latency calibrated to ~30s-60s per segment
+	let perSegSec = 42;
+	if (model.includes("pro")) perSegSec = 60;
+	else if (model.includes("lite")) perSegSec = 30;
+	else if (model.includes("veo")) perSegSec = 90;
 
 	let resMult = 1.0;
-	if (resolution === "1080p") resMult = 1.25;
-	else if (resolution === "1440p" || resolution === "4k") resMult = 1.6;
+	if (resolution === "1080p") resMult = 1.15;
+	else if (resolution === "1440p" || resolution === "4k") resMult = 1.4;
 
+	const planningBaseSec = 10;
+	const stitchingBaseSec = 6;
 	const estimatedTotalSec = Math.round(
-		4 + perSegSec * resMult * numSegments + 2,
+		planningBaseSec + perSegSec * resMult * numSegments + stitchingBaseSec,
 	);
 
 	// Update planning completion with estimated total time
