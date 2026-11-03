@@ -1,5 +1,7 @@
 import type { VideoSegment } from "./types";
 
+export * from "./visual-generator";
+
 export interface SvgSceneConfig {
 	width: number;
 	height: number;

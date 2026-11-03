@@ -14,7 +14,21 @@ import { getAudioDuration } from "./voiceover";
 
 const execFileAsync = promisify(execFile);
 
-function escapeFfmpegText(str: string): string {
+export interface RenderSegmentVideoParams {
+	segment: VideoSegment;
+	audioPath: string;
+	outputMp4Path: string;
+	visualAssetPath?: string;
+	visualAssetType?: "image" | "video";
+	aspectRatio?: string;
+	resolution?: string;
+	theme?: string;
+	overallProgStart?: number;
+	overallProgEnd?: number;
+	fps?: number;
+}
+
+export function escapeFfmpegText(str: string): string {
 	return str
 		.replace(/\\/g, "\\\\")
 		.replace(/'/g, "\\'")
@@ -45,116 +59,169 @@ export async function generateVideoThumbnail(
 	return outputPath;
 }
 
+function resolveRenderParams(
+	segmentOrParams: VideoSegment | RenderSegmentVideoParams,
+	posAudio?: string,
+	posOutput?: string,
+	posAspect = DEFAULT_ASPECT_RATIO,
+	posRes = DEFAULT_RESOLUTION,
+	posTheme = "dark_glow",
+	posProgStart = 0,
+	posProgEnd = 1,
+	posFps = DEFAULT_FPS,
+	posAssetPath?: string,
+	posAssetType: "image" | "video" = "image",
+): RenderSegmentVideoParams {
+	if ("audioPath" in segmentOrParams) {
+		return segmentOrParams;
+	}
+	return {
+		segment: segmentOrParams,
+		audioPath: posAudio || "",
+		outputMp4Path: posOutput || "",
+		aspectRatio: posAspect,
+		resolution: posRes,
+		theme: posTheme,
+		overallProgStart: posProgStart,
+		overallProgEnd: posProgEnd,
+		fps: posFps,
+		visualAssetPath: posAssetPath,
+		visualAssetType: posAssetType,
+	};
+}
+
 export async function renderSegmentVideo(
-	segment: VideoSegment,
-	audioPath: string,
-	outputMp4Path: string,
-	aspectRatio = DEFAULT_ASPECT_RATIO,
-	resolution = DEFAULT_RESOLUTION,
-	theme = "dark_glow",
-	_overallProgStart = 0,
-	overallProgEnd = 1,
-	_fps = DEFAULT_FPS,
+	segmentOrParams: VideoSegment | RenderSegmentVideoParams,
+	posAudio?: string,
+	posOutput?: string,
+	posAspect = DEFAULT_ASPECT_RATIO,
+	posRes = DEFAULT_RESOLUTION,
+	posTheme = "dark_glow",
+	posProgStart = 0,
+	posProgEnd = 1,
+	posFps = DEFAULT_FPS,
+	posAssetPath?: string,
+	posAssetType: "image" | "video" = "image",
 ): Promise<string> {
+	const params = resolveRenderParams(
+		segmentOrParams,
+		posAudio,
+		posOutput,
+		posAspect,
+		posRes,
+		posTheme,
+		posProgStart,
+		posProgEnd,
+		posFps,
+		posAssetPath,
+		posAssetType,
+	);
+
+	const {
+		segment,
+		audioPath,
+		outputMp4Path,
+		visualAssetPath,
+		visualAssetType = "image",
+		aspectRatio = DEFAULT_ASPECT_RATIO,
+		resolution = DEFAULT_RESOLUTION,
+		theme = "dark_glow",
+		overallProgEnd = 1,
+		fps = DEFAULT_FPS,
+	} = params;
+
 	fs.mkdirSync(path.dirname(outputMp4Path), { recursive: true });
 	const dims = RESOLUTIONS[aspectRatio]?.[resolution] || [1080, 1920];
 	const [w, h] = dims;
 
 	const duration = await getAudioDuration(audioPath);
 	const themeCfg = getTheme(theme);
-	const fontPath = "assets/fonts/HindSiliguri-Bold.ttf";
-
 	const scale = w / 720;
 	const barW = Math.round(w * Math.max(0.05, Math.min(1.0, overallProgEnd)));
-	const badgeText = escapeFfmpegText(
+	const barH = Math.max(4, Math.round(8 * scale));
+
+	const hasVisualFile =
+		visualAssetPath &&
+		fs.existsSync(visualAssetPath) &&
+		fs.statSync(visualAssetPath).size > 0;
+
+	if (hasVisualFile && visualAssetType === "video") {
+		// Video clip from Veo
+		const filter = `scale=${w}:${h}:force_original_aspect_ratio=decrease,pad=${w}:${h}:(ow-iw)/2:(oh-ih)/2,drawbox=x=0:y=0:w=${barW}:h=${barH}:color=${themeCfg.barColor}:t=fill`;
+		await execFileAsync("ffmpeg", [
+			"-y",
+			"-stream_loop",
+			"-1",
+			"-i",
+			visualAssetPath,
+			"-i",
+			audioPath,
+			"-t",
+			String(duration),
+			"-vf",
+			filter,
+			"-c:v",
+			"libx264",
+			"-preset",
+			"veryfast",
+			"-pix_fmt",
+			"yuv420p",
+			"-r",
+			String(fps),
+			"-c:a",
+			"aac",
+			"-b:a",
+			"192k",
+			"-shortest",
+			outputMp4Path,
+		]);
+		return outputMp4Path;
+	}
+
+	if (hasVisualFile) {
+		// AI-Generated SVG rasterized to high-res PNG image
+		const filter = `scale=${w}:${h}:force_original_aspect_ratio=decrease,pad=${w}:${h}:(ow-iw)/2:(oh-ih)/2,drawbox=x=0:y=0:w=${barW}:h=${barH}:color=${themeCfg.barColor}:t=fill`;
+		await execFileAsync("ffmpeg", [
+			"-y",
+			"-loop",
+			"1",
+			"-i",
+			visualAssetPath,
+			"-i",
+			audioPath,
+			"-t",
+			String(duration),
+			"-vf",
+			filter,
+			"-c:v",
+			"libx264",
+			"-preset",
+			"veryfast",
+			"-pix_fmt",
+			"yuv420p",
+			"-r",
+			String(fps),
+			"-c:a",
+			"aac",
+			"-b:a",
+			"192k",
+			"-shortest",
+			outputMp4Path,
+		]);
+		return outputMp4Path;
+	}
+
+	// Emergency fallback if no visual file was generated
+	const fontPath = "assets/fonts/HindSiliguri-Bold.ttf";
+	const badge = escapeFfmpegText(
 		segment.badge_text || segment.tag || "Study Video",
 	);
-	const titleText = escapeFfmpegText(segment.title || "");
-	const captionText = escapeFfmpegText(segment.bottom_caption || "");
-
-	const filters: string[] = [];
-
-	// Top progress bar
-	filters.push(
-		`drawbox=x=0:y=0:w=${barW}:h=${Math.round(8 * scale)}:color=${themeCfg.barColor}:t=fill`,
-	);
-
-	// Top badge pill
-	const badgeW = Math.min(w - 60, Math.round(220 * scale));
-	const badgeH = Math.round(44 * scale);
-	const badgeY = Math.round(50 * scale);
-	filters.push(
-		`drawbox=x=40:y=${badgeY}:w=${badgeW}:h=${badgeH}:color=${themeCfg.cardBg}:t=fill`,
-	);
-	filters.push(
-		`drawbox=x=40:y=${badgeY}:w=${badgeW}:h=${badgeH}:color=${themeCfg.barColor}:t=2`,
-	);
-	filters.push(
-		`drawtext=fontfile='${fontPath}':text='${badgeText}':fontcolor=white:fontsize=${Math.round(20 * scale)}:x=56:y=${badgeY + Math.round(10 * scale)}`,
-	);
-
-	// Title
-	if (titleText) {
-		const titleSize =
-			titleText.length > 35 ? Math.round(28 * scale) : Math.round(34 * scale);
-		filters.push(
-			`drawtext=fontfile='${fontPath}':text='${titleText}':fontcolor=white:fontsize=${titleSize}:x=(w-text_w)/2:y=${Math.round(140 * scale)}`,
-		);
-	}
-
-	// Dynamic concept cards
-	const cards = segment.card_items || [];
-	const cardStartY = Math.round(240 * scale);
-	const cardH = Math.round(96 * scale);
-	const cardGap = Math.round(20 * scale);
-	const cardW = w - Math.round(80 * scale);
-	const cardX = Math.round(40 * scale);
-
-	cards.slice(0, 4).forEach((card, i) => {
-		const cY = cardStartY + i * (cardH + cardGap);
-		const cTitle = escapeFfmpegText(card.title || "");
-		const cSub = escapeFfmpegText(card.subtitle || "");
-		const accent = card.accent || themeCfg.barColor;
-
-		filters.push(
-			`drawbox=x=${cardX}:y=${cY}:w=${cardW}:h=${cardH}:color=${themeCfg.cardBg}:t=fill`,
-		);
-		filters.push(
-			`drawbox=x=${cardX}:y=${cY}:w=${cardW}:h=${cardH}:color=${themeCfg.cardBorder}:t=2`,
-		);
-		filters.push(
-			`drawbox=x=${cardX + 4}:y=${cY + 4}:w=${Math.round(6 * scale)}:h=${cardH - 8}:color=${accent}:t=fill`,
-		);
-		if (cTitle) {
-			filters.push(
-				`drawtext=fontfile='${fontPath}':text='${cTitle}':fontcolor=white:fontsize=${Math.round(22 * scale)}:x=${cardX + Math.round(24 * scale)}:y=${cY + Math.round(16 * scale)}`,
-			);
-		}
-		if (cSub) {
-			filters.push(
-				`drawtext=fontfile='${fontPath}':text='${cSub}':fontcolor=#94a3b8:fontsize=${Math.round(17 * scale)}:x=${cardX + Math.round(24 * scale)}:y=${cY + Math.round(52 * scale)}`,
-			);
-		}
-	});
-
-	// Bottom summary caption pill
-	if (captionText) {
-		const capH = Math.round(54 * scale);
-		const capW = w - Math.round(80 * scale);
-		const capX = Math.round(40 * scale);
-		const capY = h - Math.round(120 * scale);
-		filters.push(
-			`drawbox=x=${capX}:y=${capY}:w=${capW}:h=${capH}:color=${themeCfg.captionBg}:t=fill`,
-		);
-		filters.push(
-			`drawbox=x=${capX}:y=${capY}:w=${capW}:h=${capH}:color=${themeCfg.captionBorder}:t=2`,
-		);
-		filters.push(
-			`drawtext=fontfile='${fontPath}':text='${captionText}':fontcolor=white:fontsize=${Math.round(20 * scale)}:x=(w-text_w)/2:y=${capY + Math.round(15 * scale)}`,
-		);
-	}
-
-	const filterString = filters.join(",");
+	const title = escapeFfmpegText(segment.title || "");
+	const fallbackFilters: string[] = [
+		`drawbox=x=0:y=0:w=${barW}:h=${barH}:color=${themeCfg.barColor}:t=fill`,
+		`drawtext=fontfile='${fontPath}':text='${badge}':fontcolor=white:fontsize=${Math.round(22 * scale)}:x=40:y=50`,
+		`drawtext=fontfile='${fontPath}':text='${title}':fontcolor=white:fontsize=${Math.round(32 * scale)}:x=(w-text_w)/2:y=(h-text_h)/2`,
+	];
 
 	await execFileAsync("ffmpeg", [
 		"-y",
@@ -165,13 +232,15 @@ export async function renderSegmentVideo(
 		"-i",
 		audioPath,
 		"-vf",
-		filterString,
+		fallbackFilters.join(","),
 		"-c:v",
 		"libx264",
 		"-preset",
 		"veryfast",
 		"-pix_fmt",
 		"yuv420p",
+		"-r",
+		String(fps),
 		"-c:a",
 		"aac",
 		"-b:a",
@@ -227,7 +296,6 @@ export async function stitchSegments(
 			outputMasterPath,
 		]);
 	} catch {
-		// Fallback with re-encode
 		await execFileAsync("ffmpeg", [
 			"-y",
 			"-f",

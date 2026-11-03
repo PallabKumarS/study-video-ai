@@ -10,6 +10,7 @@ import {
 	stitchSegments,
 } from "./stitcher";
 import type { SegmentRecord, VideoMetadata, VideoPlan } from "./types";
+import { generateSegmentVisualAsset } from "./visual-generator";
 import { generateVoiceover } from "./voiceover";
 
 export interface JobProgress {
@@ -196,8 +197,32 @@ export async function generateStudyVideo(params: {
 			apiKey,
 		);
 
-		// Rendering
-		const progRender = 45 + Math.floor((i / numSegments) * 40);
+		// Visual Asset Generation
+		const progVisual = 35 + Math.floor((i / numSegments) * 25);
+		updateJobProgress(
+			jobDir,
+			jobId,
+			"generating_visuals",
+			progVisual,
+			`Generating AI visuals for segment ${idx}/${numSegments}: ${segTag}`,
+			null,
+			estimatedTotalSec,
+		);
+
+		const visualAsset = await generateSegmentVisualAsset({
+			segment: seg,
+			topic: planData.topic || title || prompt,
+			outputBaseDir: segmentsDir,
+			aspectRatio,
+			resolution,
+			theme,
+			language,
+			model,
+			apiKey,
+		});
+
+		// Motion Video Rendering
+		const progRender = 60 + Math.floor((i / numSegments) * 28);
 		updateJobProgress(
 			jobDir,
 			jobId,
@@ -209,16 +234,18 @@ export async function generateStudyVideo(params: {
 		);
 
 		const segMp4Path = path.join(segmentsDir, `segment_${idx}.mp4`);
-		await renderSegmentVideo(
-			seg,
+		await renderSegmentVideo({
+			segment: seg,
 			audioPath,
-			segMp4Path,
+			outputMp4Path: segMp4Path,
+			visualAssetPath: visualAsset.path,
+			visualAssetType: visualAsset.type,
 			aspectRatio,
 			resolution,
 			theme,
-			i / numSegments,
-			(i + 1) / numSegments,
-		);
+			overallProgStart: i / numSegments,
+			overallProgEnd: (i + 1) / numSegments,
+		});
 
 		const segThumbPath = path.join(segmentsDir, `thumb_seg_${idx}.jpg`);
 		await generateVideoThumbnail(segMp4Path, segThumbPath, "00:00:01");
@@ -386,20 +413,35 @@ export async function regenerateSingleSegment(params: {
 		apiKey,
 	);
 
-	// Re-render segment video
+	// Re-generate visual asset
 	const segmentsDir = path.join(jobDir, "segments");
-	const segMp4Path = path.join(segmentsDir, `segment_${segmentIndex}.mp4`);
-	const numSegments = segments.length;
-	await renderSegmentVideo(
-		currentSeg,
-		audioPath,
-		segMp4Path,
+	const visualAsset = await generateSegmentVisualAsset({
+		segment: currentSeg,
+		topic,
+		outputBaseDir: segmentsDir,
 		aspectRatio,
 		resolution,
 		theme,
-		targetIdx / numSegments,
-		(targetIdx + 1) / numSegments,
-	);
+		language,
+		model,
+		apiKey,
+	});
+
+	// Re-render segment video
+	const segMp4Path = path.join(segmentsDir, `segment_${segmentIndex}.mp4`);
+	const numSegments = segments.length;
+	await renderSegmentVideo({
+		segment: currentSeg,
+		audioPath,
+		outputMp4Path: segMp4Path,
+		visualAssetPath: visualAsset.path,
+		visualAssetType: visualAsset.type,
+		aspectRatio,
+		resolution,
+		theme,
+		overallProgStart: targetIdx / numSegments,
+		overallProgEnd: (targetIdx + 1) / numSegments,
+	});
 
 	const segThumbPath = path.join(segmentsDir, `thumb_seg_${segmentIndex}.jpg`);
 	await generateVideoThumbnail(segMp4Path, segThumbPath, "00:00:01");
@@ -571,17 +613,32 @@ export async function regenerateEntireVideo(params: {
 			`Rendering revision visuals for segment ${idx}/${numSegments}: ${segTag}`,
 		);
 
-		const segMp4Path = path.join(segmentsDir, `segment_${idx}.mp4`);
-		await renderSegmentVideo(
-			seg,
-			audioPath,
-			segMp4Path,
+		// Visual Asset Generation
+		const visualAsset = await generateSegmentVisualAsset({
+			segment: seg,
+			topic: newPlan.topic || oldMeta.topic,
+			outputBaseDir: segmentsDir,
 			aspectRatio,
 			resolution,
 			theme,
-			i / numSegments,
-			(i + 1) / numSegments,
-		);
+			language,
+			model,
+			apiKey,
+		});
+
+		const segMp4Path = path.join(segmentsDir, `segment_${idx}.mp4`);
+		await renderSegmentVideo({
+			segment: seg,
+			audioPath,
+			outputMp4Path: segMp4Path,
+			visualAssetPath: visualAsset.path,
+			visualAssetType: visualAsset.type,
+			aspectRatio,
+			resolution,
+			theme,
+			overallProgStart: i / numSegments,
+			overallProgEnd: (i + 1) / numSegments,
+		});
 
 		const segThumbPath = path.join(segmentsDir, `thumb_seg_${idx}.jpg`);
 		await generateVideoThumbnail(segMp4Path, segThumbPath, "00:00:01");
