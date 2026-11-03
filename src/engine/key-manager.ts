@@ -226,6 +226,8 @@ function buildModelQuotas(
 	const is38Exhausted =
 		exhaustedModels.includes("gemini-3.8-flash") || (isFree && used38 >= 20);
 	const limit38 = isFree ? "20 RPD" : "10,000 RPD";
+	const effectiveUsed38 =
+		is38Exhausted && isFree ? Math.max(20, used38) : used38;
 	const rem38 = is38Exhausted
 		? "0 left"
 		: isFree
@@ -269,7 +271,7 @@ function buildModelQuotas(
 			model_id: "gemini-3.8-flash",
 			display_name: "Gemini 3.8 Flash",
 			daily_limit: limit38,
-			used_today: used38,
+			used_today: effectiveUsed38,
 			remaining: rem38,
 			supported: has38,
 			status: is38Exhausted ? "Quota Exhausted" : "Operational",
@@ -343,9 +345,9 @@ export async function testKeyStatus(
 		}
 		const latency = Date.now() - tStart;
 
-		// Default active/extended access keys to Gemini Pro Plan (Subscription)
+		// Default keys to Google AI Studio Free Tier unless explicitly set to pro or payg
 		const effectiveTier: "pro" | "free" | "payg" =
-			store[kHash]?.tier_override || (modelCount > 40 ? "pro" : "free");
+			store[kHash]?.tier_override || "free";
 
 		let serviceTier = "Gemini Pro Plan";
 		let tierExplanation =
