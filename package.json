@@ -8,6 +8,7 @@
     "dev": "next dev -p 3850",
     "build": "next build",
     "start": "next start -p 3850",
+    "generate": "tsx scripts/generate-video.ts",
     "check": "biome check --write",
     "electron:dev": "concurrently \"npm run dev\" \"wait-on tcp:3850 && electron electron/main.cjs\""
   },
@@ -36,6 +37,7 @@
     "electron": "^45.2.1",
     "postcss": "^8.5.32",
     "tailwindcss": "^4.3.3",
+    "tsx": "^4.23.15",
     "typescript": "^7.0.2",
     "wait-on": "^9.5.1"
   }
