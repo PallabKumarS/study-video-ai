@@ -159,33 +159,6 @@ const RESOLUTION_OPTIONS: SelectOption[] = [
 	},
 ];
 
-const DURATION_OPTIONS: SelectOption[] = [
-	{
-		value: "30",
-		label: "30 Seconds",
-		badge: "2 Segments",
-		badgeColor: "slate",
-	},
-	{
-		value: "60",
-		label: "60 Seconds",
-		badge: "3-4 Segments",
-		badgeColor: "sky",
-	},
-	{
-		value: "90",
-		label: "90 Seconds",
-		badge: "4-5 Segments",
-		badgeColor: "purple",
-	},
-	{
-		value: "120",
-		label: "120 Seconds",
-		badge: "5-6 Segments",
-		badgeColor: "amber",
-	},
-];
-
 const VOICE_OPTIONS: SelectOption[] = [
 	{
 		value: "gemini-kore",
@@ -239,69 +212,6 @@ const VOICE_OPTIONS: SelectOption[] = [
 	},
 ];
 
-const PRESETS = {
-	bn: [
-		{
-			title: "আলোর প্রতিসরণ ও উত্তল-অবতল লেন্সের ৩টি নিয়ম",
-			prompt:
-				"পদার্থবিজ্ঞান: উত্তল ও অবতল লেন্সের ৩টি রশ্মি নিয়ম ও বাস্তব-অবাস্তব প্রতিবিম্ব গঠন চিত্রসহ সহজ ব্যাখ্যা",
-			duration: 60,
-			ar: "9:16",
-		},
-		{
-			title: "ধারাবাহিকতা বনাম প্রতিভা",
-			prompt:
-				"স্টাডি মোটিভেশন: কেন মেধার চেয়ে প্রতিদিনের ধারাবাহিক অভ্যাস ও নিয়মানুবর্তিতা বড় জয় এনে দেয়",
-			duration: 60,
-			ar: "9:16",
-		},
-		{
-			title: "বুয়েট ও ইঞ্জিনিয়ারিং এডমিশন স্ট্র্যাটেজি",
-			prompt:
-				"RUET, BUET ও CKET ইঞ্জিনিয়ারিং এডমিশন টেস্টের জন্য কনসেপ্ট ক্লিয়ার করার সেরা টেকনিক ও রিভিশন পদ্ধতি",
-			duration: 60,
-			ar: "9:16",
-		},
-		{
-			title: "তড়িৎ রসায়ন ও ফ্যারাডের সূত্র",
-			prompt:
-				"রসায়ন: ফ্যারাডের তড়িৎ বিশ্লেষণের সূত্রাবলী ও গানিতিক সমীকরণসমূহের দৃশ্যমান অ্যানিমেশন",
-			duration: 60,
-			ar: "16:9",
-		},
-	],
-	en: [
-		{
-			title: "Lens Optics: 3 Ray Rules Explained",
-			prompt:
-				"Physics: Concave and Convex Lenses Explained with Ray Rules & Real Image Formation",
-			duration: 60,
-			ar: "9:16",
-		},
-		{
-			title: "Consistency vs Raw Talent",
-			prompt:
-				"Study Motivation: Celebrate Small Wins & Why comparing with others destroys focus",
-			duration: 60,
-			ar: "9:16",
-		},
-		{
-			title: "Engineering Admission Mastery",
-			prompt:
-				"Engineering Admission: Complete Problem Solving Framework & Active Recall Techniques",
-			duration: 60,
-			ar: "9:16",
-		},
-		{
-			title: "Electrochemistry & Faraday Laws",
-			prompt:
-				"Chemistry: Electrochemistry & Faraday Laws of Electrolysis with formulas and animations",
-			duration: 60,
-			ar: "16:9",
-		},
-	],
-};
-
 export function GeneratorForm({
 	advisorList,
 	themes,
@@ -316,7 +226,7 @@ export function GeneratorForm({
 	const [model, setModel] = useState(initialModel || "gemini-3.8-flash");
 	const [resolution, setResolution] = useState("1080p");
 	const [aspectRatio, setAspectRatio] = useState("9:16");
-	const [duration, setDuration] = useState("60");
+	const duration = "60";
 	const [voice, setVoice] = useState("gemini-kore");
 	const [theme, setTheme] = useState("deep_slate_academic");
 
@@ -469,89 +379,41 @@ export function GeneratorForm({
 					<Sparkles className="w-4 h-4 text-sky-400" />
 					<span>Create Study Video</span>
 				</h2>
-				<span className="text-xs text-slate-400">TypeScript Engine</span>
 			</div>
-
 			{/* Language Toggle */}
 			<div className="space-y-2">
-				<div className="flex items-center justify-between">
-					<label className="text-xs font-medium text-slate-300 flex items-center gap-1.5">
-						<Languages className="w-3.5 h-3.5 text-sky-400" />
-						<span>Video Content Language</span>
-					</label>
-					<span
-						title={
-							language === "bn"
-								? "Voiceover audio narration and on-screen diagrams will be rendered in Bengali"
-								: "Voiceover audio narration and on-screen diagrams will be rendered in English"
-						}
-						className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium border transition-colors cursor-help ${
-							language === "bn"
-								? "bg-emerald-500/10 border-emerald-500/25 text-emerald-300"
-								: "bg-sky-500/10 border-sky-500/25 text-sky-300"
-						}`}
-					>
-						<span
-							className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-								language === "bn"
-									? "bg-emerald-400 animate-pulse"
-									: "bg-sky-400 animate-pulse"
-							}`}
-						/>
-						<span>
-							{language === "bn"
-								? "Bengali (Voice & On-Screen Text)"
-								: "English (Voice & On-Screen Text)"}
-						</span>
-					</span>
-				</div>
+				<label className="text-xs font-medium text-slate-300 flex items-center gap-1.5">
+					<Languages className="w-3.5 h-3.5 text-sky-400" />
+					<span>Video Language</span>
+				</label>
 				<div className="grid grid-cols-2 gap-2.5">
 					<button
 						type="button"
-						onClick={() => {
-							setLanguage("bn");
-						}}
-						title="Bengali Video: Both narration audio and on-screen diagrams in natural Bengali"
-						className={`h-11 px-4 rounded-xl border text-xs font-semibold flex items-center justify-center gap-2.5 transition-all cursor-pointer ${
+						onClick={() => setLanguage("bn")}
+						className={`h-10 px-4 rounded-xl border text-xs font-semibold flex items-center justify-center gap-2 transition cursor-pointer ${
 							language === "bn"
 								? "border-emerald-500 bg-emerald-500/15 text-emerald-300 shadow-sm shadow-emerald-950/40"
 								: "border-slate-800 bg-[#141b2a] text-slate-400 hover:text-slate-200 hover:border-slate-700"
 						}`}
 					>
-						<span className="w-5 h-3.5 rounded-[3px] overflow-hidden flex items-center justify-center bg-[#006a4e] relative shadow-xs shrink-0">
-							<span className="w-2 h-2 rounded-full bg-[#f42a41]" />
+						<span className="w-4 h-3 rounded-[2px] overflow-hidden flex items-center justify-center bg-[#006a4e] relative shrink-0">
+							<span className="w-1.5 h-1.5 rounded-full bg-[#f42a41]" />
 						</span>
-						<span className="leading-none">Bengali (Default)</span>
+						<span>Bengali</span>
 					</button>
 					<button
 						type="button"
-						onClick={() => {
-							setLanguage("en");
-						}}
-						title="English Video: Both narration audio and on-screen diagrams in English"
-						className={`h-11 px-4 rounded-xl border text-xs font-semibold flex items-center justify-center gap-2.5 transition-all cursor-pointer ${
+						onClick={() => setLanguage("en")}
+						className={`h-10 px-4 rounded-xl border text-xs font-semibold flex items-center justify-center gap-2 transition cursor-pointer ${
 							language === "en"
 								? "border-sky-500 bg-sky-500/15 text-sky-300 shadow-sm shadow-sky-950/40"
 								: "border-slate-800 bg-[#141b2a] text-slate-400 hover:text-slate-200 hover:border-slate-700"
 						}`}
 					>
-						<svg
-							className="w-5 h-3.5 rounded-[3px] shrink-0 shadow-xs"
-							viewBox="0 0 60 30"
-							fill="none"
-							aria-hidden="true"
-						>
-							<rect width="60" height="30" fill="#012169" />
-							<path d="M0 0l60 30m0-30L0 30" stroke="#ffffff" strokeWidth="6" />
-							<path d="M0 0l60 30m0-30L0 30" stroke="#C8102E" strokeWidth="4" />
-							<path d="M30 0v30M0 15h60" stroke="#ffffff" strokeWidth="10" />
-							<path d="M30 0v30M0 15h60" stroke="#C8102E" strokeWidth="6" />
-						</svg>
-						<span className="leading-none">English</span>
+						<span>English</span>
 					</button>
 				</div>
 			</div>
-
 			{/* Video Title */}
 			<div className="space-y-1.5">
 				<div className="flex items-center justify-between">
@@ -563,12 +425,11 @@ export function GeneratorForm({
 						type="button"
 						onClick={handleGenerateTitle}
 						disabled={generatingTitle}
-						title="Generate an optimized educational title using Gemini AI"
 						className="text-[11px] text-sky-400 hover:text-sky-300 flex items-center gap-1 font-semibold transition px-2 py-0.5 rounded bg-sky-500/10 hover:bg-sky-500/20 disabled:opacity-50 cursor-pointer"
 					>
 						<Sparkles className="w-3 h-3" />
 						<span>
-							{generatingTitle ? "Generating..." : "Generate Title with AI"}
+							{generatingTitle ? "Generating..." : "Generate with AI"}
 						</span>
 					</button>
 				</div>
@@ -576,95 +437,44 @@ export function GeneratorForm({
 					type="text"
 					value={title}
 					onChange={(e) => handleTitleChange(e.target.value)}
-					title="Main video title used for the output folder and MP4 filename"
 					placeholder="Enter video title or generate with AI..."
 					className="w-full rounded-xl bg-[#161d2d] border border-slate-800 px-3.5 py-2.5 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-sky-500 transition"
 				/>
 			</div>
-
 			{/* Prompt */}
-			<div className="space-y-2">
-				<label className="text-xs font-medium text-slate-300 flex items-center justify-between">
-					<span>Detailed Prompt / Concept</span>
-					<span className="text-slate-500 text-[11px]">
-						Specify core rules & focus
-					</span>
+			<div className="space-y-1.5">
+				<label className="text-xs font-medium text-slate-300">
+					Prompt / Concept
 				</label>
 				<textarea
 					rows={3}
 					value={prompt}
 					onChange={(e) => handlePromptChange(e.target.value)}
-					placeholder="Enter topic prompt here..."
+					placeholder="Enter educational topic prompt..."
 					className="w-full rounded-xl bg-[#161d2d] border border-slate-800 px-3.5 py-3 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-sky-500 transition resize-none"
 				/>
 			</div>
-
-			{/* Quick Presets */}
-			<div className="space-y-1.5">
-				<span className="text-[11px] font-medium text-slate-400">
-					Quick Presets:
-				</span>
-				<div className="flex flex-wrap gap-1.5">
-					{PRESETS[language].map((p) => (
-						<button
-							key={p.title}
-							type="button"
-							onClick={() => {
-								handleTitleChange(p.title);
-								handlePromptChange(p.prompt);
-								setDuration(p.duration.toString());
-								setAspectRatio(p.ar);
-							}}
-							title={`${p.title}\n\nConcept:\n${p.prompt}\n\nTarget Duration: ${p.duration}s | Aspect Ratio: ${p.ar}`}
-							className="text-[11px] px-2.5 py-1 rounded-lg bg-[#161d2d] hover:bg-slate-800 text-slate-300 border border-slate-800 hover:border-sky-500/50 transition cursor-pointer max-w-full"
-						>
-							<span className="truncate inline-block max-w-[200px] sm:max-w-none align-bottom">
-								{p.title}
-							</span>{" "}
-							({p.duration}s)
-						</button>
-					))}
-				</div>
-			</div>
-
 			{/* Model Engine */}
 			<div className="space-y-1.5 pt-1">
-				<div className="flex items-center justify-between h-5">
-					<span className="text-xs font-semibold text-slate-200">
-						Gemini Model Engine
-					</span>
-					<span className="text-emerald-400 text-[10px] font-semibold bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">
-						AI Studio Active
-					</span>
-				</div>
+				<span className="text-xs font-semibold text-slate-200">
+					Model Engine
+				</span>
 				<CustomSelect
 					value={model}
 					onChange={handleModelChange}
 					options={MODEL_OPTIONS}
 				/>
 			</div>
-
 			{/* Model Advisor Box */}
 			<ModelAdvisor
 				selectedModel={model}
 				advisorList={advisorList}
 				onSelectModel={handleModelChange}
 			/>
-
 			{/* Resolution & Aspect Ratio */}
 			<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
 				<div className="space-y-1.5">
-					<div className="flex items-center justify-between h-5">
-						<span className="text-xs font-medium text-slate-300">
-							Resolution
-						</span>
-						<span
-							title="1080p Full HD Standard Render"
-							className="text-sky-400 text-[10px] font-semibold cursor-help"
-						>
-							1080p Default
-						</span>
-					</div>
+					<span className="text-xs font-medium text-slate-300">Resolution</span>
 					<CustomSelect
 						value={resolution}
 						onChange={setResolution}
@@ -673,22 +483,13 @@ export function GeneratorForm({
 				</div>
 
 				<div className="space-y-1.5">
-					<div className="flex items-center justify-between h-5">
-						<span className="text-xs font-medium text-slate-300">
-							Aspect Ratio
-						</span>
-						<span
-							title="Canvas dimension format"
-							className="text-slate-400 text-[10px] cursor-help"
-						>
-							Canvas Format
-						</span>
-					</div>
+					<span className="text-xs font-medium text-slate-300">
+						Aspect Ratio
+					</span>
 					<div className="grid grid-cols-2 gap-1.5 h-11">
 						<button
 							type="button"
 							onClick={() => setAspectRatio("9:16")}
-							title="9:16 Shorts format (1080x1920) for YouTube Shorts, TikTok, and Instagram Reels"
 							className={`h-full rounded-xl border text-xs font-semibold transition cursor-pointer flex items-center justify-center ${
 								aspectRatio === "9:16"
 									? "bg-sky-500/20 border-sky-500 text-sky-300 shadow-sm shadow-sky-950/40"
@@ -700,7 +501,6 @@ export function GeneratorForm({
 						<button
 							type="button"
 							onClick={() => setAspectRatio("16:9")}
-							title="16:9 Cinema format (1920x1080) for YouTube, widescreen monitors, and classrooms"
 							className={`h-full rounded-xl border text-xs font-semibold transition cursor-pointer flex items-center justify-center ${
 								aspectRatio === "16:9"
 									? "bg-sky-500/20 border-sky-500 text-sky-300 shadow-sm shadow-sky-950/40"
@@ -712,22 +512,13 @@ export function GeneratorForm({
 					</div>
 				</div>
 			</div>
-
-			{/* Voice Engine & Target Duration */}
+			{/* Voice Narration & Visual Theme */}
 			<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
 				<div className="space-y-1.5">
-					<div className="flex items-center justify-between h-5">
-						<span className="text-xs font-medium text-slate-300 flex items-center gap-1.5">
-							<Volume2 className="w-3.5 h-3.5 text-emerald-400" />
-							<span>Voice Narration</span>
-						</span>
-						<span
-							title="7 High-fidelity studio voice options available"
-							className="text-emerald-400 text-[10px] font-semibold cursor-help"
-						>
-							7 Options
-						</span>
-					</div>
+					<span className="text-xs font-medium text-slate-300 flex items-center gap-1.5">
+						<Volume2 className="w-3.5 h-3.5 text-emerald-400" />
+						<span>Voice Narration</span>
+					</span>
 					<CustomSelect
 						value={voice}
 						onChange={setVoice}
@@ -736,45 +527,19 @@ export function GeneratorForm({
 				</div>
 
 				<div className="space-y-1.5">
-					<div className="flex items-center justify-between h-5">
-						<span className="text-xs font-medium text-slate-300">
-							Target Duration
-						</span>
-						<span
-							title="Estimated total pacing and segments"
-							className="text-slate-400 text-[10px] cursor-help"
-						>
-							Estimated Pacing
-						</span>
-					</div>
-					<CustomSelect
-						value={duration}
-						onChange={setDuration}
-						options={DURATION_OPTIONS}
-					/>
-				</div>
-			</div>
-
-			{/* Visual Theme */}
-			<div className="space-y-1.5">
-				<div className="flex items-center justify-between h-5">
 					<span className="text-xs font-medium text-slate-300">
 						Visual Theme
 					</span>
-					<span className="text-sky-400 text-[10px] font-semibold">
-						{themes.length} Available
-					</span>
+					<CustomSelect
+						value={theme}
+						onChange={setTheme}
+						options={themes.map((t) => ({
+							value: t.id,
+							label: t.name,
+						}))}
+					/>
 				</div>
-				<CustomSelect
-					value={theme}
-					onChange={setTheme}
-					options={themes.map((t) => ({
-						value: t.id,
-						label: t.name,
-					}))}
-				/>
 			</div>
-
 			{/* Submit & Cancel Actions */}
 			<div className="space-y-3">
 				<div className="flex items-center gap-3">
@@ -817,7 +582,6 @@ export function GeneratorForm({
 					</button>
 				)}
 			</div>
-
 			{/* Progress Card */}
 			{isCurrentJobActive && currentJob && (
 				<div className="glass-panel rounded-2xl p-5 shadow-xl space-y-3 border-sky-500/30">
@@ -859,7 +623,6 @@ export function GeneratorForm({
 					</div>
 				</div>
 			)}
-
 			<ConfirmModal
 				isOpen={showCancelModal}
 				onClose={() => setShowCancelModal(false)}
