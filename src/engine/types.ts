@@ -34,7 +34,13 @@ export interface VideoSegment {
 	visual_prompt?: string;
 	animation_details?: AnimationDetails;
 	card_items?: CardItem[];
-	diagram_type?: "none" | "lens_ray" | "3d_spatial";
+	diagram_type?:
+		| "none"
+		| "lens_ray"
+		| "3d_spatial"
+		| "wave_propagation"
+		| "cell_process"
+		| "particle_flow";
 	diagram_data?: LensDiagramData;
 }
 

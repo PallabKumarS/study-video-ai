@@ -159,29 +159,49 @@ async function synthesizeGeminiTts(
 	}
 
 	const ai = new GoogleGenAI({ apiKey: key });
-	const response = await ai.models.generateContent({
-		model: "gemini-3.8-flash-tts",
-		contents: text,
-		config: {
-			responseModalities: ["AUDIO"],
-			speechConfig: {
-				voiceConfig: {
-					prebuiltVoiceConfig: {
-						voiceName,
+	const ttsCandidateModels = [
+		"gemini-3.8-flash-lite-tts",
+		"gemini-3.1-flash-tts-preview",
+		"gemini-3.8-flash-tts",
+	];
+
+	let rawBase64Audio = "";
+	let lastTtsError: unknown = null;
+
+	for (const ttsModel of ttsCandidateModels) {
+		try {
+			const response = await ai.models.generateContent({
+				model: ttsModel,
+				contents: text,
+				config: {
+					responseModalities: ["AUDIO"],
+					speechConfig: {
+						voiceConfig: {
+							prebuiltVoiceConfig: {
+								voiceName,
+							},
+						},
 					},
 				},
-			},
-		},
-	});
+			});
 
-	const part = response.candidates?.[0]?.content?.parts?.[0];
-	if (!part?.inlineData?.data) {
-		throw new Error("Gemini TTS returned no audio data.");
+			const part = response.candidates?.[0]?.content?.parts?.[0];
+			if (part?.inlineData?.data) {
+				rawBase64Audio = part.inlineData.data;
+				break;
+			}
+		} catch (err) {
+			lastTtsError = err;
+		}
+	}
+
+	if (!rawBase64Audio) {
+		throw new Error(`All Gemini TTS models failed: ${lastTtsError}`);
 	}
 
 	const tempWav = `${outputPath}.tmp.wav`;
 	try {
-		const wavBuffer = Buffer.from(part.inlineData.data, "base64");
+		const wavBuffer = Buffer.from(rawBase64Audio, "base64");
 		fs.writeFileSync(tempWav, wavBuffer);
 		await execFileAsync("ffmpeg", [
 			"-y",
