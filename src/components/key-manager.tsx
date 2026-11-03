@@ -6,6 +6,7 @@ import {
 	HelpCircle,
 	Info,
 	Key,
+	Layers,
 	PlusCircle,
 	RefreshCw,
 	Save,
@@ -389,6 +390,103 @@ export function KeyManager({ keys, onKeysChanged }: KeyManagerProps) {
 										<span>{pctRemaining}% quota available</span>
 									</div>
 								</div>
+
+								{/* Per-Model Quotas & Usage Breakdown */}
+								{k.model_quotas && k.model_quotas.length > 0 && (
+									<div className="space-y-1.5 pt-0.5">
+										<div className="flex items-center justify-between text-[11px] text-slate-400 font-medium">
+											<span className="flex items-center gap-1">
+												<Layers className="w-3.5 h-3.5 text-sky-400" />
+												<span>Model Quota & Support:</span>
+											</span>
+											<span className="text-[10px] text-slate-500 font-mono">
+												3.8 • Argon • 3.5 • Veo
+											</span>
+										</div>
+										<div className="grid grid-cols-2 gap-1.5">
+											{k.model_quotas.map((mq) => {
+												const isExhausted = mq.status === "Quota Exhausted";
+												const isProReq = mq.status === "Pro Plan Required";
+												const isOperational = mq.status === "Operational";
+
+												const statusColor = isOperational
+													? "text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
+													: isExhausted
+														? "text-rose-400 bg-rose-500/10 border-rose-500/20"
+														: isProReq
+															? "text-purple-400 bg-purple-500/10 border-purple-500/20"
+															: "text-slate-400 bg-slate-800/40 border-slate-700/40";
+
+												const badgeLabel =
+													mq.status === "Operational"
+														? "Ready"
+														: mq.status === "Quota Exhausted"
+															? "Exhausted"
+															: mq.status === "Pro Plan Required"
+																? "Pro Only"
+																: "Not Supported";
+
+												return (
+													<div
+														key={mq.model_id}
+														title={`${mq.display_name}\nStatus: ${mq.status}\nDaily Limit: ${mq.daily_limit}\nUsed Today: ${mq.used_today} calls\nRemaining: ${mq.remaining}\n${mq.status_note || ""}`}
+														className={`p-2 rounded-lg bg-[#0e1422] border transition cursor-help flex flex-col justify-between text-[10px] space-y-1 ${
+															isOperational
+																? "border-emerald-500/20 hover:border-emerald-500/40"
+																: isExhausted
+																	? "border-rose-500/30 hover:border-rose-500/50"
+																	: isProReq
+																		? "border-purple-500/20 hover:border-purple-500/40"
+																		: "border-slate-800/80 hover:border-slate-700/80"
+														}`}
+													>
+														<div className="flex items-center justify-between gap-1">
+															<span className="font-semibold text-slate-200 truncate text-[10.5px]">
+																{mq.display_name}
+															</span>
+															<span
+																className={`px-1.5 py-0.5 rounded text-[9px] font-bold border ${statusColor}`}
+															>
+																{badgeLabel}
+															</span>
+														</div>
+														<div className="flex items-center justify-between text-slate-400 text-[10px]">
+															<span>
+																Used:{" "}
+																<strong className="text-slate-100 font-mono">
+																	{mq.used_today}
+																</strong>
+															</span>
+															<span
+																className={`font-mono text-[10px] font-semibold ${
+																	isExhausted
+																		? "text-rose-400"
+																		: isOperational
+																			? "text-emerald-400"
+																			: isProReq
+																				? "text-purple-400"
+																				: "text-slate-400"
+																}`}
+															>
+																{mq.remaining}
+															</span>
+														</div>
+														<div className="flex items-center justify-between text-[9px] text-slate-500 pt-0.5">
+															<span className="truncate">
+																Limit: {mq.daily_limit}
+															</span>
+															{mq.supported && (
+																<span className="text-[9px] text-emerald-400/80 font-medium font-mono">
+																	Supported
+																</span>
+															)}
+														</div>
+													</div>
+												);
+											})}
+										</div>
+									</div>
+								)}
 
 								{/* Detailed Spec Grid */}
 								<div className="grid grid-cols-2 gap-2 text-[11px]">

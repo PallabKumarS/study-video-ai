@@ -1,6 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
 import { getCurrentGeminiApiKey, SUPPORTED_GEMINI_MODELS } from "./config";
-import { recordKeyUsage } from "./key-manager";
+import { recordKeyUsage, recordModelExhaustion } from "./key-manager";
 import type { VideoPlan, VideoSegment } from "./types";
 
 export function getGenAIClient(apiKey?: string): GoogleGenAI {
@@ -47,10 +47,20 @@ export async function generateVideoTitle(
 			const title = resp.text?.trim().replace(/^["'`]|["'`]$/g, "");
 			if (title && title.length > 2) {
 				const activeK = apiKey || getCurrentGeminiApiKey();
-				recordKeyUsage(activeK, "generate_title", 200);
+				recordKeyUsage(activeK, "generate_title", 200, modelName);
 				return title;
 			}
-		} catch {}
+		} catch (err) {
+			const errStr = String(err);
+			if (
+				errStr.includes("429") ||
+				errStr.includes("quota") ||
+				errStr.includes("RESOURCE_EXHAUSTED")
+			) {
+				const activeK = apiKey || getCurrentGeminiApiKey();
+				recordModelExhaustion(activeK, modelName);
+			}
+		}
 	}
 
 	return language === "bn"
@@ -340,10 +350,19 @@ Generate the structured segments with voiceover narration, cards, diagram elemen
 
 			const enhanced = validateAndEnhancePlan(data, userPrompt, language);
 			const activeK = apiKey || getCurrentGeminiApiKey();
-			recordKeyUsage(activeK, "video_generation", 1800);
+			recordKeyUsage(activeK, "video_generation", 1800, modelName);
 			return enhanced;
 		} catch (err) {
 			lastError = err;
+			const errStr = String(err);
+			if (
+				errStr.includes("429") ||
+				errStr.includes("quota") ||
+				errStr.includes("RESOURCE_EXHAUSTED")
+			) {
+				const activeK = apiKey || getCurrentGeminiApiKey();
+				recordModelExhaustion(activeK, modelName);
+			}
 		}
 	}
 
@@ -401,9 +420,19 @@ Return ONLY the updated JSON segment object.
 			const updated = JSON.parse(cleaned) as VideoSegment;
 			updated.segment_index = segment.segment_index;
 			const activeK = apiKey || getCurrentGeminiApiKey();
-			recordKeyUsage(activeK, "segment_refinement", 800);
+			recordKeyUsage(activeK, "segment_refinement", 800, modelName);
 			return updated;
-		} catch {}
+		} catch (err) {
+			const errStr = String(err);
+			if (
+				errStr.includes("429") ||
+				errStr.includes("quota") ||
+				errStr.includes("RESOURCE_EXHAUSTED")
+			) {
+				const activeK = apiKey || getCurrentGeminiApiKey();
+				recordModelExhaustion(activeK, modelName);
+			}
+		}
 	}
 
 	const fallback = { ...segment };

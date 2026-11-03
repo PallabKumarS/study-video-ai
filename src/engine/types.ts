@@ -121,6 +121,21 @@ export interface ModelAdvisorProfile {
 	description: string;
 }
 
+export interface ModelQuotaInfo {
+	model_id: string;
+	display_name: string;
+	daily_limit: number | string;
+	used_today: number;
+	remaining: number | string;
+	supported: boolean;
+	status:
+		| "Operational"
+		| "Quota Exhausted"
+		| "Not Supported"
+		| "Pro Plan Required";
+	status_note?: string;
+}
+
 export interface KeyStatus {
 	key_hash: string;
 	masked_key: string;
@@ -141,4 +156,5 @@ export interface KeyStatus {
 	today_videos: number;
 	latency_ms: number;
 	last_checked: string;
+	model_quotas?: ModelQuotaInfo[];
 }

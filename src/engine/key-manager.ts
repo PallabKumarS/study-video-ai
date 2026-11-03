@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { GoogleGenAI } from "@google/genai";
 import { BASE_DIR, getCurrentGeminiApiKey, OUTPUT_DIR } from "./config";
-import type { KeyStatus } from "./types";
+import type { KeyStatus, ModelQuotaInfo } from "./types";
 
 const ENV_PATH = path.join(BASE_DIR, ".env");
 const USAGE_FILE = path.join(OUTPUT_DIR, "key_usage.json");
@@ -109,7 +109,35 @@ export interface KeyUsageStore {
 		today_videos: number;
 		total_tokens_est: number;
 		tier_override?: "pro" | "free" | "payg";
+		models_usage?: Record<string, number>;
+		exhausted_models?: string[];
 	};
+}
+
+export function recordModelExhaustion(key: string, modelName: string): void {
+	const h = getKeyHash(key);
+	const today = new Date().toISOString().slice(0, 10);
+	const store = loadUsageStore();
+	if (!store[h] || store[h].date !== today) {
+		const existingTier = store[h]?.tier_override;
+		store[h] = {
+			date: today,
+			today_requests: 0,
+			today_videos: 0,
+			total_tokens_est: 0,
+			tier_override: existingTier,
+			models_usage: {},
+			exhausted_models: [],
+		};
+	}
+	if (!store[h].exhausted_models) {
+		store[h].exhausted_models = [];
+	}
+	const cleanName = modelName.replace(/^models\//, "");
+	if (!store[h].exhausted_models.includes(cleanName)) {
+		store[h].exhausted_models.push(cleanName);
+	}
+	saveUsageStore(store);
 }
 
 export function loadUsageStore(): KeyUsageStore {
@@ -150,6 +178,7 @@ export function recordKeyUsage(
 	key: string,
 	action = "api_call",
 	tokensEst = 500,
+	modelName?: string,
 ): void {
 	const h = getKeyHash(key);
 	const today = new Date().toISOString().slice(0, 10);
@@ -163,7 +192,12 @@ export function recordKeyUsage(
 			today_videos: 0,
 			total_tokens_est: 0,
 			tier_override: existingTier,
+			models_usage: {},
 		};
+	}
+
+	if (!store[h].models_usage) {
+		store[h].models_usage = {};
 	}
 
 	store[h].today_requests += 1;
@@ -171,7 +205,117 @@ export function recordKeyUsage(
 	if (action === "video_generation") {
 		store[h].today_videos += 1;
 	}
+	if (modelName) {
+		const cleanName = modelName.replace(/^models\//, "");
+		store[h].models_usage[cleanName] =
+			(store[h].models_usage[cleanName] || 0) + 1;
+	}
 	saveUsageStore(store);
+}
+
+function buildModelQuotas(
+	availableModelNames: Set<string>,
+	modelsUsage: Record<string, number>,
+	effectiveTier: "pro" | "free" | "payg",
+	exhaustedModels: string[] = [],
+): ModelQuotaInfo[] {
+	const isFree = effectiveTier === "free";
+
+	// 1. Gemini 3.8 Flash
+	const used38 = modelsUsage["gemini-3.8-flash"] || 0;
+	const is38Exhausted =
+		exhaustedModels.includes("gemini-3.8-flash") || (isFree && used38 >= 20);
+	const limit38 = isFree ? "20 RPD" : "10,000 RPD";
+	const rem38 = is38Exhausted
+		? "0 left"
+		: isFree
+			? `${Math.max(0, 20 - used38).toLocaleString()} left`
+			: `${Math.max(0, 10000 - used38).toLocaleString()} left`;
+	const has38 = availableModelNames.has("gemini-3.8-flash");
+
+	// 2. Gemini 4.0 Argon
+	const usedArgon = modelsUsage["gemini-4-argon"] || 0;
+	const hasArgon = availableModelNames.has("gemini-4-argon") || !isFree;
+	const limitArgon = isFree ? "Pro Plan" : "10,000 RPD";
+	const remArgon = isFree
+		? "Locked (Pro)"
+		: `${Math.max(0, 10000 - usedArgon).toLocaleString()} left`;
+
+	// 3. Gemini 3.5 Flash Lite
+	const used35 = modelsUsage["gemini-3.5-flash-lite"] || 0;
+	const limit35 = isFree ? "1,500 RPD" : "10,000 RPD";
+	const rem35 = isFree
+		? `${Math.max(0, 1500 - used35).toLocaleString()} left`
+		: `${Math.max(0, 10000 - used35).toLocaleString()} left`;
+	const has35 = availableModelNames.has("gemini-3.5-flash-lite");
+
+	// 4. Google Veo Video
+	const hasVeo = Array.from(availableModelNames).some((m) => m.includes("veo"));
+	const usedVeo =
+		(modelsUsage.veo || 0) +
+		(modelsUsage["veo-2.0-generate-001"] || 0) +
+		(modelsUsage["veo-3.1-generate-preview"] || 0);
+	const limitVeo = hasVeo
+		? isFree
+			? "10 RPD"
+			: "500 RPD"
+		: "Requires Vertex AI";
+	const remVeo = hasVeo
+		? `${Math.max(0, (isFree ? 10 : 500) - usedVeo).toLocaleString()} left`
+		: "Requires Vertex AI";
+
+	return [
+		{
+			model_id: "gemini-3.8-flash",
+			display_name: "Gemini 3.8 Flash",
+			daily_limit: limit38,
+			used_today: used38,
+			remaining: rem38,
+			supported: has38,
+			status: is38Exhausted ? "Quota Exhausted" : "Operational",
+			status_note: is38Exhausted
+				? "Free Tier 20 RPD limit reached. Resets daily."
+				: isFree
+					? "Free Tier 20 RPD limit. Resets daily."
+					: "Priority Pro tier high-speed STEM reasoning",
+		},
+		{
+			model_id: "gemini-4-argon",
+			display_name: "Gemini 4.0 Argon",
+			daily_limit: limitArgon,
+			used_today: usedArgon,
+			remaining: remArgon,
+			supported: hasArgon,
+			status: isFree ? "Pro Plan Required" : "Operational",
+			status_note: isFree
+				? "Requires Gemini Pro Subscription or PayG"
+				: "Flagship STEM mathematical ray reasoning active",
+		},
+		{
+			model_id: "gemini-3.5-flash-lite",
+			display_name: "Gemini 3.5 Flash Lite",
+			daily_limit: limit35,
+			used_today: used35,
+			remaining: rem35,
+			supported: has35,
+			status: "Operational",
+			status_note: isFree
+				? "Generous free tier quota (1,500 RPD)"
+				: "Ultra-fast low-latency high-volume tier",
+		},
+		{
+			model_id: "veo",
+			display_name: "Google Veo",
+			daily_limit: limitVeo,
+			used_today: usedVeo,
+			remaining: remVeo,
+			supported: hasVeo,
+			status: hasVeo ? "Operational" : "Not Supported",
+			status_note: hasVeo
+				? "AI Video generation enabled on this key"
+				: "Requires Vertex AI allowlist or Gemini Enterprise access",
+		},
+	];
 }
 
 export async function testKeyStatus(
@@ -188,10 +332,14 @@ export async function testKeyStatus(
 	try {
 		const ai = new GoogleGenAI({ apiKey: key });
 		const modelsResponse = await ai.models.list();
+		const availableModelNames = new Set<string>();
 		let modelCount = 0;
-		for await (const _ of modelsResponse) {
+		for await (const m of modelsResponse) {
 			modelCount++;
-			if (modelCount > 60) break;
+			if (m.name) {
+				availableModelNames.add(m.name.replace(/^models\//, ""));
+			}
+			if (modelCount > 80) break;
 		}
 		const latency = Date.now() - tStart;
 
@@ -223,6 +371,12 @@ export async function testKeyStatus(
 		}
 
 		const remaining = Math.max(0, dailyLimit - usage.today_requests);
+		const modelQuotas = buildModelQuotas(
+			availableModelNames,
+			usage.models_usage || {},
+			effectiveTier,
+			usage.exhausted_models || [],
+		);
 
 		return {
 			key_hash: kHash,
@@ -244,10 +398,17 @@ export async function testKeyStatus(
 			today_videos: usage.today_videos,
 			latency_ms: latency,
 			last_checked: new Date().toLocaleTimeString(),
+			model_quotas: modelQuotas,
 		};
 	} catch (err: unknown) {
 		const errMsg = err instanceof Error ? err.message : String(err);
 		const latency = Date.now() - tStart;
+		const fallbackQuotas = buildModelQuotas(
+			new Set<string>(),
+			usage.models_usage || {},
+			"free",
+			usage.exhausted_models || [],
+		);
 		return {
 			key_hash: kHash,
 			masked_key: masked,
@@ -269,6 +430,7 @@ export async function testKeyStatus(
 			today_videos: usage.today_videos,
 			latency_ms: latency,
 			last_checked: new Date().toLocaleTimeString(),
+			model_quotas: fallbackQuotas,
 		};
 	}
 }

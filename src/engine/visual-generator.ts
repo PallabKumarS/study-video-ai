@@ -149,7 +149,7 @@ export async function generateSegmentVisualAsset(
 			const text = response.text || "";
 			if (text.includes("<svg") && text.includes("</svg>")) {
 				rawSvg = text;
-				recordKeyUsage(activeKey, "generate_visual", 1500);
+				recordKeyUsage(activeKey, "generate_visual", 1500, modelName);
 				break;
 			}
 		} catch {}
