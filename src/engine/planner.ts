@@ -325,6 +325,16 @@ Generate the structured segments with voiceover narration, cards, diagram elemen
 			const cleaned = cleanJsonResponse(raw);
 			const data = JSON.parse(cleaned) as VideoPlan;
 			data.used_model = isVeoRequested ? preferredModel : modelName;
+			if (modelName !== planningModel) {
+				const errStr = String(lastError);
+				const is429 =
+					errStr.includes("429") ||
+					errStr.includes("quota") ||
+					errStr.includes("RESOURCE_EXHAUSTED");
+				data.fallback_reason = is429
+					? `${planningModel} daily quota limit was reached; automatically switched to ${modelName}`
+					: `${planningModel} was temporarily unavailable; automatically switched to ${modelName}`;
+			}
 			data.language = language;
 			if (customTitle) data.topic = customTitle;
 

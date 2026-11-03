@@ -39,10 +39,10 @@ const MODEL_OPTIONS: SelectOption[] = [
 	{
 		value: "gemini-3.8-flash",
 		label: "Gemini 3.8 Flash (Recommended)",
-		badge: "Pro High Speed & Accurate",
+		badge: "Pro / Free (20 RPD)",
 		badgeColor: "sky",
 		subtitle:
-			"Latest high-reasoning engine with fast speed & zero misinformation for STEM animations",
+			"Latest high-reasoning engine with fast speed & accuracy (auto-fallback to 3.5-lite if 20 RPD free limit is reached)",
 	},
 	{
 		value: "gemini-4-argon",

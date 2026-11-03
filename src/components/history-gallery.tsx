@@ -40,7 +40,7 @@ export function HistoryGallery({
 			) : (
 				<div className="grid grid-cols-[repeat(auto-fill,minmax(min(175px,100%),1fr))] gap-2">
 					{history.map((item) => {
-						const cardTooltip = `${item.topic}\n\nCategory: ${item.category}\nLanguage: ${item.language === "bn" ? "Bengali (বাংলা)" : "English"}\nModel: ${item.model_used}\nDuration: ${item.total_duration}s | Segments: ${item.total_segments}\nFile: ${item.video_file_name || "master_video.mp4"}`;
+						const cardTooltip = `${item.topic}\n\nCategory: ${item.category}\nLanguage: ${item.language === "bn" ? "Bengali (বাংলা)" : "English"}\nModel: ${item.model_used}${item.fallback_reason ? `\nFallback Note: ${item.fallback_reason}` : ""}\nDuration: ${item.total_duration}s | Segments: ${item.total_segments}\nFile: ${item.video_file_name || "master_video.mp4"}`;
 						return (
 							<button
 								type="button"

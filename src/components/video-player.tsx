@@ -142,10 +142,23 @@ export function VideoPlayer({
 						{currentVideo.language === "bn" ? "বাংলা (Bengali)" : "English"}
 					</span>
 					<span
-						title={`Gemini AI Reasoning Engine: ${currentVideo.model_used}`}
-						className="px-2.5 py-1 rounded-md bg-sky-500/10 border border-sky-500/20 text-sky-300 cursor-help"
+						title={
+							currentVideo.fallback_reason
+								? `Fallback Note: ${currentVideo.fallback_reason}`
+								: `Gemini AI Reasoning Engine: ${currentVideo.model_used}`
+						}
+						className={`px-2.5 py-1 rounded-md border cursor-help inline-flex items-center gap-1.5 ${
+							currentVideo.fallback_reason
+								? "bg-amber-500/10 border-amber-500/30 text-amber-300"
+								: "bg-sky-500/10 border-sky-500/20 text-sky-300"
+						}`}
 					>
 						{currentVideo.model_used}
+						{currentVideo.fallback_reason && (
+							<span className="text-[10px] uppercase font-semibold px-1 py-0.5 rounded bg-amber-500/20 text-amber-200">
+								Auto Fallback
+							</span>
+						)}
 					</span>
 					{currentVideo.voice_used && (
 						<span

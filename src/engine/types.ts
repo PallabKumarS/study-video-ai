@@ -52,6 +52,7 @@ export interface VideoPlan {
 	estimated_total_seconds: number;
 	segments: VideoSegment[];
 	used_model?: string;
+	fallback_reason?: string;
 	original_prompt?: string;
 }
 
@@ -76,6 +77,7 @@ export interface VideoMetadata {
 	resolution: string;
 	aspect_ratio: string;
 	model_used: string;
+	fallback_reason?: string;
 	total_duration: number;
 	total_segments: number;
 	master_video_url: string;

@@ -293,7 +293,7 @@ export function ArchiveView({ initialVideos }: ArchiveViewProps) {
 						<div className="grid grid-cols-[repeat(auto-fill,minmax(min(240px,100%),1fr))] gap-3.5">
 							{filteredVideos.map((item) => {
 								const isSelected = selectedVideo?.job_id === item.job_id;
-								const itemTooltip = `${item.topic}\n\nCategory: ${item.category}\nLanguage: ${item.language === "bn" ? "Bengali (বাংলা)" : "English"}\nModel: ${item.model_used}\nDuration: ${item.total_duration}s | Segments: ${item.total_segments}\nFile: ${item.video_file_name || "master_video.mp4"}`;
+								const itemTooltip = `${item.topic}\n\nCategory: ${item.category}\nLanguage: ${item.language === "bn" ? "Bengali (বাংলা)" : "English"}\nModel: ${item.model_used}${item.fallback_reason ? `\nFallback Note: ${item.fallback_reason}` : ""}\nDuration: ${item.total_duration}s | Segments: ${item.total_segments}\nFile: ${item.video_file_name || "master_video.mp4"}`;
 								return (
 									<article
 										key={item.job_id}
